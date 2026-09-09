@@ -48,24 +48,37 @@ jobs:
       - name: Build Web Assets (Vite)
         run: npm run build
 
-      - name: Download Neutralino Binary & Build Bundle
+      - name: Download Neutralino Binary & Client JS, then Build
         shell: pwsh
         run: |
+          # 1. Baca versi binary
           $config = Get-Content neutralino.config.json -Raw | ConvertFrom-Json
           $neuVer = $config.cli.binaryVersion
 
           if ($neuVer -eq "latest" -or [string]::IsNullOrWhiteSpace($neuVer)) {
-              Write-Host "Binary version is set to 'latest'. Fetching actual latest version number..."
+              Write-Host "Binary version is 'latest'. Fetching latest version..."
               $latestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/neutralinojs/neutralinojs/releases/latest"
               $neuVer = $latestRelease.tag_name.TrimStart("v")
           }
 
+          # 2. Unduh dan ekstrak Neutralino Binary
           $binUrl = "https://github.com/neutralinojs/neutralinojs/releases/download/v$neuVer/neutralinojs-v$neuVer.zip"
-          Write-Host "Downloading Neutralino binary v$neuVer from $binUrl..."
+          Write-Host "Downloading Neutralino binary v$neuVer..."
           Invoke-WebRequest -Uri $binUrl -OutFile "neutralinojs.zip"
-          
           Expand-Archive -Path "neutralinojs.zip" -DestinationPath "bin" -Force
           Remove-Item "neutralinojs.zip"
+
+          # 3. Unduh neutralino.js ke folder dist dan dist/js (mencegah error missing file)
+          Write-Host "Downloading neutralino.js client..."
+          $clientUrl = "https://github.com/neutralinojs/neutralino.js/releases/latest/download/neutralino.js"
+          
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          New-Item -ItemType Directory -Force -Path "dist/js" | Out-Null
+          
+          Invoke-WebRequest -Uri $clientUrl -OutFile "dist/neutralino.js"
+          Invoke-WebRequest -Uri $clientUrl -OutFile "dist/js/neutralino.js"
+
+          # 4. Build bundel aplikasi
           npx neu build
 
       - name: Install Inno Setup
