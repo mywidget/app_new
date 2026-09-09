@@ -1,0 +1,7 @@
+{
+  "applicationId": "id.printpro.pos",
+  "version": "1.0.1",
+  "resourcesURL": "https://github.com/username/printpro-pos/releases/download/v1.0.1/resources.neu",
+  "downloadUrl": "https://github.com/username/printpro-pos/releases/download/v1.0.1/PrintPro-Setup-v1.0.1.exe",
+  "changelog": "- Perbaikan bug kasir\n- Peningkatan performa cetak"
+}

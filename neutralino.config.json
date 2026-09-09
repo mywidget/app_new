@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "id.printpro.pos",
+  "applicationName": "PrintPro POS",
+  "applicationDescription": "PrintPro POS System",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/dist/",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "singlePageServe": true,
+  "version": "1.0.0",
+  "nativeAllowList": [
+    "app.*",
+    "os.*",
+    "filesystem.*",
+    "computer.*",
+    "updater.*"
+  ],
+  "modes": {
+    "window": {
+      "title": "PrintPro POS",
+      "width": 1366,
+      "height": 768,
+      "minWidth": 1000,
+      "minHeight": 600,
+      "center": true,
+      "maximize": true,
+      "exitProcessOnClose": true
+    }
+  },
+  "cli": {
+    "binaryName": "PrintProPOS",
+    "resourcesPath": "/dist/",
+    "distributionPath": "/release/neutralino",
+    "binaryVersion": "latest",
+    "clientVersion": "latest",
+    "clientLibrary": "/dist/js/neutralino.js"
+  }
+}
