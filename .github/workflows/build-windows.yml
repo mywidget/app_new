@@ -89,7 +89,7 @@ jobs:
 
       - name: Compile Installer
         shell: pwsh
-        run: & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" setup.iss
+        run: "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" setup.iss
 
       - name: Generate update.json
         shell: pwsh
