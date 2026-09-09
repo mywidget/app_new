@@ -89,7 +89,7 @@ jobs:
 
       - name: Compile Installer
         shell: pwsh
-        run: "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" setup.iss
+        run: & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" setup.iss
 
       - name: Generate update.json
         shell: pwsh
@@ -101,6 +101,8 @@ jobs:
               downloadUrl = "https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/PrintPro-Setup-v$env:VERSION.exe"
               changelog = "Pembaruan otomatis versi $env:VERSION"
           } | ConvertTo-Json -Depth 5
+
+          New-Item -ItemType Directory -Force -Path "release_installer" | Out-Null
           Set-Content -Path "release_installer/update.json" -Value $updateJson -Encoding UTF8
 
       - name: Create GitHub Release
