@@ -67,31 +67,31 @@ jobs:
       - name: Create Inno Setup Script
         shell: pwsh
         run: |
-          $iss = @"
-          [Setup]
-          AppName=PrintPro POS
-          AppVersion=$env:VERSION
-          AppPublisher=PrintPro
-          DefaultDirName={autopf}\PrintProPOS
-          DefaultGroupName=PrintPro POS
-          OutputDir=release_installer
-          OutputBaseFilename=PrintPro-Setup-v$env:VERSION
-          Compression=lzma
-          SolidCompression=yes
-          ArchitecturesInstallIn64BitMode=x64
-
-          [Files]
-          Source: "release\PrintProPOS\PrintProPOS-win_x64.exe"; DestDir: "{app}"; Flags: ignoreversion
-          Source: "release\PrintProPOS\resources.neu"; DestDir: "{app}"; Flags: ignoreversion
-
-          [Icons]
-          Name: "{group}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"
-          Name: "{autodesktop}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"
-
-          [Run]
-          Filename: "{app}\PrintProPOS-win_x64.exe"; Description: "Jalankan Aplikasi"; Flags: nowait postinstall skipifsilent
-"@
-          Set-Content -Path "setup.iss" -Value $iss -Encoding UTF8
+          $lines = @(
+              '[Setup]',
+              'AppName=PrintPro POS',
+              "AppVersion=$env:VERSION",
+              'AppPublisher=PrintPro',
+              'DefaultDirName={autopf}\PrintProPOS',
+              'DefaultGroupName=PrintPro POS',
+              'OutputDir=release_installer',
+              "OutputBaseFilename=PrintPro-Setup-v$env:VERSION",
+              'Compression=lzma',
+              'SolidCompression=yes',
+              'ArchitecturesInstallIn64BitMode=x64',
+              '',
+              '[Files]',
+              'Source: "release\PrintProPOS\PrintProPOS-win_x64.exe"; DestDir: "{app}"; Flags: ignoreversion',
+              'Source: "release\PrintProPOS\resources.neu"; DestDir: "{app}"; Flags: ignoreversion',
+              '',
+              '[Icons]',
+              'Name: "{group}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"',
+              'Name: "{autodesktop}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"',
+              '',
+              '[Run]',
+              'Filename: "{app}\PrintProPOS-win_x64.exe"; Description: "Jalankan Aplikasi"; Flags: nowait postinstall skipifsilent'
+          )
+          $lines | Set-Content -Path "setup.iss" -Encoding UTF8
 
       - name: Compile Installer
         shell: pwsh
