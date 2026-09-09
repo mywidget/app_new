@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Dependensi
+node_modules/
+
+# Hasil Build Web & Neutralino
+dist/
+release/
+release_installer/
+
+# Environment & Log
+.env
+*.log
+.DS_Store
+
+# Neutralino local storage / cache
+.storage/
