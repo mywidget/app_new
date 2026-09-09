@@ -51,20 +51,13 @@ jobs:
       - name: Download Neutralino Binary & Build Bundle
         shell: pwsh
         run: |
-          # 1. Baca versi neutralino dari neutralino.config.json
           $config = Get-Content neutralino.config.json -Raw | ConvertFrom-Json
           $neuVer = $config.cli.binaryVersion
-
-          # 2. Unduh binary resmi langsung dari GitHub Release Neutralino
           $binUrl = "https://github.com/neutralinojs/neutralinojs/releases/download/v$neuVer/neutralinojs-v$neuVer.zip"
           Write-Host "Downloading Neutralino binary from $binUrl..."
           Invoke-WebRequest -Uri $binUrl -OutFile "neutralinojs.zip"
-
-          # 3. Ekstrak ke folder bin
           Expand-Archive -Path "neutralinojs.zip" -DestinationPath "bin" -Force
           Remove-Item "neutralinojs.zip"
-
-          # 4. Build bundel aplikasi
           npx neu build
 
       - name: Install Inno Setup
@@ -97,7 +90,7 @@ jobs:
 
           [Run]
           Filename: "{app}\PrintProPOS-win_x64.exe"; Description: "Jalankan Aplikasi"; Flags: nowait postinstall skipifsilent
-          "@
+"@
           Set-Content -Path "setup.iss" -Value $iss -Encoding UTF8
 
       - name: Compile Installer
