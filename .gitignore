@@ -37,3 +37,6 @@ release_installer/
 
 # Neutralino local storage / cache
 .storage/
+bin/
+release/
+release_installer/
