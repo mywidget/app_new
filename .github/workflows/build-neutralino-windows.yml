@@ -22,16 +22,18 @@ jobs:
 
     steps:
 
-      # ==========================================================
-      # 1. CHECKOUT
-      # ==========================================================
+      # =========================================================
+      # CHECKOUT
+      # =========================================================
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
 
-      # ==========================================================
-      # 2. SETUP NODE
-      # ==========================================================
+      # =========================================================
+      # NODE
+      # =========================================================
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -39,17 +41,24 @@ jobs:
           cache: npm
 
 
-      # ==========================================================
-      # 3. DETERMINE VERSION
-      # ==========================================================
+      # =========================================================
+      # VERSION
+      # =========================================================
+
       - name: Determine Version
+        id: version
         shell: pwsh
         run: |
+
           if ("${{ github.ref_type }}" -eq "tag") {
+
               $VERSION = "${{ github.ref_name }}".TrimStart("v")
+
           }
           else {
+
               $VERSION = "${{ inputs.version }}".Trim()
+
           }
 
           if ([string]::IsNullOrWhiteSpace($VERSION)) {
@@ -66,12 +75,14 @@ jobs:
           "VERSION=$VERSION" >> $env:GITHUB_ENV
 
 
-      # ==========================================================
-      # 4. CHECK PROJECT
-      # ==========================================================
+      # =========================================================
+      # CHECK PROJECT
+      # =========================================================
+
       - name: Check Project
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "CHECK PROJECT"
           Write-Host "=============================================="
@@ -80,26 +91,34 @@ jobs:
               throw "package.json tidak ditemukan."
           }
 
+          if (-not (Test-Path "package-lock.json")) {
+              throw "package-lock.json tidak ditemukan."
+          }
+
           if (-not (Test-Path "neutralino.config.json")) {
               throw "neutralino.config.json tidak ditemukan."
           }
 
           Write-Host ""
-          Write-Host "package.json ditemukan."
-          Write-Host "neutralino.config.json ditemukan."
+          Write-Host "[OK] package.json"
+          Write-Host "[OK] package-lock.json"
+          Write-Host "[OK] neutralino.config.json"
 
           Write-Host ""
-          Write-Host "Isi root project:"
+          Write-Host "ROOT PROJECT:"
+
           Get-ChildItem -Force |
               Select-Object Name, Mode
 
 
-      # ==========================================================
-      # 5. SHOW NEUTRALINO CONFIG
-      # ==========================================================
+      # =========================================================
+      # SHOW CONFIG
+      # =========================================================
+
       - name: Show Neutralino Configuration
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "NEUTRALINO CONFIG"
           Write-Host "=============================================="
@@ -107,12 +126,14 @@ jobs:
           Get-Content "neutralino.config.json"
 
 
-      # ==========================================================
-      # 6. UPDATE APPLICATION VERSION
-      # ==========================================================
+      # =========================================================
+      # UPDATE APP VERSION
+      # =========================================================
+
       - name: Update Application Version
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "UPDATE APPLICATION VERSION"
           Write-Host "=============================================="
@@ -126,16 +147,19 @@ jobs:
               ConvertTo-Json -Depth 20 |
               Set-Content "neutralino.config.json" -Encoding UTF8
 
+          Write-Host ""
           Write-Host "Application version:"
           Write-Host $config.version
 
 
-      # ==========================================================
-      # 7. INSTALL DEPENDENCIES
-      # ==========================================================
+      # =========================================================
+      # INSTALL NPM
+      # =========================================================
+
       - name: Install Dependencies
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "NPM CI"
           Write-Host "=============================================="
@@ -147,12 +171,14 @@ jobs:
           }
 
 
-      # ==========================================================
-      # 8. BUILD VITE
-      # ==========================================================
+      # =========================================================
+      # VITE BUILD
+      # =========================================================
+
       - name: Build Web Application
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "BUILD VITE"
           Write-Host "=============================================="
@@ -168,20 +194,23 @@ jobs:
           }
 
           Write-Host ""
-          Write-Host "Vite berhasil."
+          Write-Host "[OK] Vite build berhasil."
 
           Write-Host ""
-          Write-Host "Isi dist:"
+          Write-Host "ISI DIST:"
+
           Get-ChildItem "dist" -Recurse |
-              Select-Object FullName
+              Select-Object FullName, Length
 
 
-      # ==========================================================
-      # 9. UPDATE NEUTRALINO
-      # ==========================================================
+      # =========================================================
+      # NEUTRALINO UPDATE
+      # =========================================================
+
       - name: Update Neutralino
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "NEUTRALINO UPDATE"
           Write-Host "=============================================="
@@ -193,15 +222,17 @@ jobs:
           }
 
           Write-Host ""
-          Write-Host "Neutralino update berhasil."
+          Write-Host "[OK] Neutralino update berhasil."
 
 
-      # ==========================================================
-      # 10. SHOW NEUTRALINO VERSION
-      # ==========================================================
+      # =========================================================
+      # NEUTRALINO VERSION
+      # =========================================================
+
       - name: Show Neutralino Version
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "NEUTRALINO VERSION"
           Write-Host "=============================================="
@@ -213,19 +244,22 @@ jobs:
           }
 
 
-      # ==========================================================
-      # 11. VERIFY CONFIG AFTER UPDATE
-      # ==========================================================
+      # =========================================================
+      # VERIFY CONFIG
+      # =========================================================
+
       - name: Verify Neutralino Config
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
-          Write-Host "VERIFY CONFIG AFTER NEU UPDATE"
+          Write-Host "VERIFY NEUTRALINO CONFIG"
           Write-Host "=============================================="
 
           $config = Get-Content "neutralino.config.json" -Raw |
               ConvertFrom-Json
 
+          Write-Host ""
           Write-Host "applicationId    = $($config.applicationId)"
           Write-Host "applicationName  = $($config.applicationName)"
           Write-Host "version          = $($config.version)"
@@ -237,20 +271,43 @@ jobs:
           Write-Host "clientVersion    = $($config.cli.clientVersion)"
           Write-Host "clientLibrary    = $($config.cli.clientLibrary)"
 
-          if ($config.cli.distributionPath -ne "/release/neutralino") {
-              Write-Host ""
-              Write-Host "WARNING:"
-              Write-Host "distributionPath bukan /release/neutralino."
-              Write-Host "Path aktual akan digunakan oleh workflow."
+          if ($config.version -ne "$env:VERSION") {
+              throw "Version Neutralino tidak sesuai dengan VERSION release."
           }
 
 
-      # ==========================================================
-      # 12. BUILD NEUTRALINO
-      # ==========================================================
+      # =========================================================
+      # CREATE RELEASE DIRECTORY
+      # =========================================================
+
+      - name: Prepare Neutralino Release Directory
+        shell: pwsh
+        run: |
+
+          Write-Host "=============================================="
+          Write-Host "PREPARE RELEASE DIRECTORY"
+          Write-Host "=============================================="
+
+          New-Item `
+              -ItemType Directory `
+              -Force `
+              -Path "release\neutralino" |
+              Out-Null
+
+          Write-Host ""
+          Write-Host "[OK] release\neutralino dibuat."
+
+          Get-Item "release\neutralino"
+
+
+      # =========================================================
+      # NEUTRALINO BUILD
+      # =========================================================
+
       - name: Build Neutralino Windows
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "NEUTRALINO BUILD"
           Write-Host "=============================================="
@@ -262,147 +319,245 @@ jobs:
           }
 
           Write-Host ""
-          Write-Host "npx neu build selesai."
+          Write-Host "[OK] npx neu build selesai."
 
 
-      # ==========================================================
-      # 13. DEBUG ALL BUILD OUTPUT
-      # ==========================================================
-      - name: Inspect Build Output
+      # =========================================================
+      # INSPECT BUILD
+      # =========================================================
+
+      - name: Inspect Neutralino Build Output
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
-          Write-Host "INSPECT BUILD OUTPUT"
+          Write-Host "INSPECT NEUTRALINO BUILD"
           Write-Host "=============================================="
 
           Write-Host ""
-          Write-Host "ROOT:"
-          Get-ChildItem -Force |
-              Select-Object Name, Mode
-
+          Write-Host "RELEASE DIRECTORY:"
           Write-Host ""
-          Write-Host "RELEASE:"
+
           if (Test-Path "release") {
+
               Get-ChildItem "release" -Recurse |
                   Select-Object FullName, Length
+
           }
           else {
-              Write-Host "Folder release tidak ada."
+
+              Write-Host "release tidak ditemukan."
+
           }
 
           Write-Host ""
-          Write-Host "DIST:"
-          if (Test-Path "dist") {
-              Get-ChildItem "dist" -Recurse |
-                  Select-Object FullName, Length
+          Write-Host "SEARCH SEMUA EXE:"
+          Write-Host ""
+
+          $exeFiles = @(
+              Get-ChildItem `
+                  -Path "." `
+                  -Recurse `
+                  -Filter "*.exe" `
+                  -File `
+                  -ErrorAction SilentlyContinue |
+              Where-Object {
+                  $_.FullName -notmatch "\\node_modules\\"
+              }
+          )
+
+          Write-Host "Jumlah EXE: $($exeFiles.Count)"
+
+          foreach ($file in $exeFiles) {
+
+              Write-Host ""
+              Write-Host "EXE:"
+              Write-Host "Path : $($file.FullName)"
+              Write-Host "Size : $($file.Length)"
+
+          }
+
+          Write-Host ""
+          Write-Host "SEARCH resources.neu:"
+          Write-Host ""
+
+          $resourcesFiles = @(
+              Get-ChildItem `
+                  -Path "." `
+                  -Recurse `
+                  -Filter "resources.neu" `
+                  -File `
+                  -ErrorAction SilentlyContinue |
+              Where-Object {
+                  $_.FullName -notmatch "\\node_modules\\"
+              }
+          )
+
+          Write-Host "Jumlah resources.neu: $($resourcesFiles.Count)"
+
+          foreach ($file in $resourcesFiles) {
+
+              Write-Host ""
+              Write-Host "RESOURCES:"
+              Write-Host "Path : $($file.FullName)"
+              Write-Host "Size : $($file.Length)"
+
           }
 
 
-      # ==========================================================
-      # 14. FIND EXE + RESOURCES
-      # ==========================================================
+      # =========================================================
+      # FIND EXE + RESOURCES
+      # =========================================================
+
       - name: Find Neutralino Windows Files
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
-          Write-Host "SEARCH NEUTRALINO FILES"
+          Write-Host "FIND NEUTRALINO WINDOWS FILES"
           Write-Host "=============================================="
 
-          # Cari semua EXE di release
-          $exeFiles = @()
+          # -----------------------------------------------------
+          # FIND EXE
+          # -----------------------------------------------------
 
-          if (Test-Path "release") {
-              $exeFiles = @(
-                  Get-ChildItem `
-                      "release" `
-                      -Recurse `
-                      -Filter "*.exe" `
-                      -File
-              )
-          }
+          $exeFiles = @(
+              Get-ChildItem `
+                  -Path "." `
+                  -Recurse `
+                  -Filter "*.exe" `
+                  -File `
+                  -ErrorAction SilentlyContinue |
+              Where-Object {
+                  $_.FullName -notmatch "\\node_modules\\"
+              }
+          )
 
           Write-Host ""
           Write-Host "EXE FOUND: $($exeFiles.Count)"
 
           foreach ($file in $exeFiles) {
+
               Write-Host " - $($file.FullName)"
+
           }
 
           if ($exeFiles.Count -eq 0) {
+
               Write-Host ""
-              Write-Host "ERROR: Tidak ada EXE Neutralino."
+              Write-Host "=============================================="
+              Write-Host "ERROR: EXE TIDAK DITEMUKAN"
+              Write-Host "=============================================="
+
               Write-Host ""
-              Write-Host "Semua file di release:"
+              Write-Host "ISI RELEASE:"
 
               if (Test-Path "release") {
+
                   Get-ChildItem "release" -Recurse |
                       Select-Object FullName, Length
+
               }
 
-              exit 1
+              throw "File executable hasil build Neutralino tidak ditemukan."
+
           }
 
-          # Prioritas nama binary PrintProPOS
+
+          # -----------------------------------------------------
+          # PRIORITIZE PRINTPROPOS
+          # -----------------------------------------------------
+
           $exe = $exeFiles |
               Where-Object {
                   $_.Name -like "PrintProPOS*.exe"
               } |
               Select-Object -First 1
 
-          # Kalau tidak ada, gunakan EXE pertama
           if (-not $exe) {
-              $exe = $exeFiles | Select-Object -First 1
+
+              Write-Host ""
+              Write-Host "PrintProPOS.exe tidak ditemukan."
+
+              Write-Host "Menggunakan EXE pertama."
+
+              $exe = $exeFiles |
+                  Select-Object -First 1
+
           }
 
-          Write-Host ""
-          Write-Host "SELECTED EXE:"
-          Write-Host $exe.FullName
 
-          # Cari resources.neu
-          $resourcesFiles = @()
+          # -----------------------------------------------------
+          # FIND RESOURCES
+          # -----------------------------------------------------
 
-          if (Test-Path "release") {
-              $resourcesFiles = @(
-                  Get-ChildItem `
-                      "release" `
-                      -Recurse `
-                      -Filter "resources.neu" `
-                      -File
-              )
-          }
+          $resourcesFiles = @(
+              Get-ChildItem `
+                  -Path "." `
+                  -Recurse `
+                  -Filter "resources.neu" `
+                  -File `
+                  -ErrorAction SilentlyContinue |
+              Where-Object {
+                  $_.FullName -notmatch "\\node_modules\\"
+              }
+          )
 
           Write-Host ""
           Write-Host "RESOURCES FOUND: $($resourcesFiles.Count)"
 
           foreach ($file in $resourcesFiles) {
+
               Write-Host " - $($file.FullName)"
+
           }
 
           if ($resourcesFiles.Count -eq 0) {
-              Write-Host ""
-              Write-Host "ERROR: resources.neu tidak ditemukan."
-              exit 1
+
+              throw "resources.neu tidak ditemukan."
+
           }
 
-          $resources = $resourcesFiles | Select-Object -First 1
+          $resources = $resourcesFiles |
+              Select-Object -First 1
+
+
+          # -----------------------------------------------------
+          # OUTPUT
+          # -----------------------------------------------------
 
           Write-Host ""
-          Write-Host "SELECTED RESOURCES:"
+          Write-Host "=============================================="
+          Write-Host "SELECTED FILES"
+          Write-Host "=============================================="
+
+          Write-Host ""
+          Write-Host "EXE:"
+          Write-Host $exe.FullName
+
+          Write-Host ""
+          Write-Host "RESOURCES:"
           Write-Host $resources.FullName
 
-          # Simpan path ke environment
+
+          # -----------------------------------------------------
+          # GITHUB ENV
+          # -----------------------------------------------------
+
           "NEUTRALINO_EXE=$($exe.FullName)" >> $env:GITHUB_ENV
           "NEUTRALINO_RESOURCES=$($resources.FullName)" >> $env:GITHUB_ENV
 
 
-      # ==========================================================
-      # 15. PREPARE INSTALLER FILES
-      # ==========================================================
+      # =========================================================
+      # PREPARE INSTALLER
+      # =========================================================
+
       - name: Prepare Installer Files
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
-          Write-Host "PREPARE INSTALLER"
+          Write-Host "PREPARE INSTALLER FILES"
           Write-Host "=============================================="
 
           New-Item `
@@ -420,6 +575,7 @@ jobs:
               "release_installer\PrintProPOS-win_x64.exe" `
               -Force
 
+
           Write-Host ""
           Write-Host "Copy resources:"
           Write-Host $env:NEUTRALINO_RESOURCES
@@ -429,6 +585,7 @@ jobs:
               "release_installer\resources.neu" `
               -Force
 
+
           if (-not (Test-Path "release_installer\PrintProPOS-win_x64.exe")) {
               throw "EXE gagal disalin."
           }
@@ -437,18 +594,22 @@ jobs:
               throw "resources.neu gagal disalin."
           }
 
+
           Write-Host ""
-          Write-Host "Installer source files:"
+          Write-Host "INSTALLER SOURCE FILES:"
+
           Get-ChildItem "release_installer" |
               Select-Object Name, Length
 
 
-      # ==========================================================
-      # 16. INSTALL INNO SETUP
-      # ==========================================================
+      # =========================================================
+      # INSTALL INNO SETUP
+      # =========================================================
+
       - name: Install Inno Setup
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "INSTALL INNO SETUP"
           Write-Host "=============================================="
@@ -459,47 +620,82 @@ jobs:
               throw "Install Inno Setup gagal."
           }
 
+          Write-Host ""
+          Write-Host "[OK] Inno Setup terinstall."
 
-      # ==========================================================
-      # 17. CREATE INNO SCRIPT
-      # ==========================================================
+
+      # =========================================================
+      # CREATE INNO SCRIPT
+      # =========================================================
+
       - name: Create Inno Setup Script
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "CREATE SETUP.ISS"
           Write-Host "=============================================="
 
           $lines = @(
+
               '[Setup]',
+
               'AppId={{id.printpro.pos}}',
+
               'AppName=PrintPro POS',
+
               "AppVersion=$env:VERSION",
+
               'AppPublisher=PrintPro',
+
               'AppPublisherURL=https://printpro.my.id',
+
               'AppSupportURL=https://printpro.my.id',
+
               'AppUpdatesURL=https://printpro.my.id',
+
               'DefaultDirName={autopf}\PrintProPOS',
+
               'DefaultGroupName=PrintPro POS',
+
               'DisableProgramGroupPage=yes',
+
               'OutputDir=release_installer',
+
               "OutputBaseFilename=PrintPro-Setup-v$env:VERSION",
+
               'Compression=lzma',
+
               'SolidCompression=yes',
+
               'WizardStyle=modern',
+
               'ArchitecturesAllowed=x64compatible',
+
               'ArchitecturesInstallIn64BitMode=x64compatible',
+
               '',
+
               '[Files]',
+
               'Source: "release_installer\PrintProPOS-win_x64.exe"; DestDir: "{app}"; Flags: ignoreversion',
+
               'Source: "release_installer\resources.neu"; DestDir: "{app}"; Flags: ignoreversion',
+
               '',
+
               '[Icons]',
+
               'Name: "{group}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"',
+
               'Name: "{autodesktop}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"',
+
               '',
+
               '[Run]',
+
               'Filename: "{app}\PrintProPOS-win_x64.exe"; Description: "Jalankan PrintPro POS"; Flags: nowait postinstall skipifsilent'
+
           )
 
           $lines |
@@ -508,15 +704,20 @@ jobs:
               -Encoding UTF8
 
           Write-Host ""
+          Write-Host "SETUP.ISS:"
+          Write-Host ""
+
           Get-Content "setup.iss"
 
 
-      # ==========================================================
-      # 18. COMPILE INSTALLER
-      # ==========================================================
+      # =========================================================
+      # COMPILE INSTALLER
+      # =========================================================
+
       - name: Compile Installer
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "COMPILE INSTALLER"
           Write-Host "=============================================="
@@ -524,13 +725,19 @@ jobs:
           $isccPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
 
           if (-not (Test-Path $isccPath)) {
-              $isccPath = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+
+              $isccPath =
+                  "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+
           }
 
           if (-not (Test-Path $isccPath)) {
+
               throw "ISCC.exe tidak ditemukan."
+
           }
 
+          Write-Host ""
           Write-Host "ISCC:"
           Write-Host $isccPath
 
@@ -540,67 +747,32 @@ jobs:
               throw "Inno Setup gagal."
           }
 
-          $installer = "release_installer\PrintPro-Setup-v$env:VERSION.exe"
+          $installer =
+              "release_installer\PrintPro-Setup-v$env:VERSION.exe"
 
           if (-not (Test-Path $installer)) {
+
               throw "Installer tidak ditemukan setelah Inno Setup."
+
           }
 
           Write-Host ""
-          Write-Host "INSTALLER BERHASIL:"
+          Write-Host "=============================================="
+          Write-Host "INSTALLER BERHASIL"
+          Write-Host "=============================================="
+
           Get-Item $installer |
               Select-Object FullName, Length
 
 
-      # ==========================================================
-      # 19. VERIFY INSTALLER
-      # ==========================================================
-      - name: Verify Final Build
-        shell: pwsh
-        run: |
-          Write-Host "=============================================="
-          Write-Host "VERIFY FINAL BUILD"
-          Write-Host "=============================================="
+      # =========================================================
+      # UPDATE JSON
+      # =========================================================
 
-          $installer = "release_installer\PrintPro-Setup-v$env:VERSION.exe"
-          $resources = "release_installer\resources.neu"
-
-          Write-Host ""
-          Write-Host "Checking installer..."
-
-          if (-not (Test-Path $installer)) {
-              throw "INSTALLER TIDAK ADA: $installer"
-          }
-
-          Write-Host "[OK] Installer"
-          Write-Host $installer
-
-          Write-Host ""
-          Write-Host "Checking resources..."
-
-          if (-not (Test-Path $resources)) {
-              throw "RESOURCES TIDAK ADA: $resources"
-          }
-
-          Write-Host "[OK] resources.neu"
-          Write-Host $resources
-
-          Write-Host ""
-          Write-Host "File size:"
-
-          Get-Item $installer |
-              Select-Object Name, Length
-
-          Get-Item $resources |
-              Select-Object Name, Length
-
-
-      # ==========================================================
-      # 20. GENERATE UPDATE.JSON
-      # ==========================================================
       - name: Generate update.json
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "GENERATE UPDATE.JSON"
           Write-Host "=============================================="
@@ -609,11 +781,20 @@ jobs:
           $ver = $env:VERSION
 
           $updateJson = @{
+
               applicationId = "id.printpro.pos"
+
               version = $ver
-              resourcesURL = "https://github.com/$repo/releases/download/v$ver/resources.neu"
-              downloadUrl = "https://github.com/$repo/releases/download/v$ver/PrintPro-Setup-v$ver.exe"
-              changelog = "Pembaruan otomatis PrintPro POS versi $ver"
+
+              resourcesURL =
+                  "https://github.com/$repo/releases/download/v$ver/resources.neu"
+
+              downloadUrl =
+                  "https://github.com/$repo/releases/download/v$ver/PrintPro-Setup-v$ver.exe"
+
+              changelog =
+                  "Pembaruan otomatis PrintPro POS versi $ver"
+
           } |
               ConvertTo-Json -Depth 10
 
@@ -623,66 +804,93 @@ jobs:
               -Encoding UTF8
 
           if (-not (Test-Path "release_installer\update.json")) {
+
               throw "update.json gagal dibuat."
+
           }
 
           Write-Host ""
-          Write-Host "update.json:"
+          Write-Host "UPDATE.JSON:"
+          Write-Host ""
+
           Get-Content "release_installer\update.json"
 
 
-      # ==========================================================
-      # 21. FINAL RELEASE CHECK
-      # ==========================================================
+      # =========================================================
+      # FINAL CHECK
+      # =========================================================
+
       - name: Final Release Check
         shell: pwsh
         run: |
+
           Write-Host "=============================================="
           Write-Host "FINAL RELEASE CHECK"
           Write-Host "=============================================="
 
           $files = @(
+
               "release_installer\PrintPro-Setup-v$env:VERSION.exe",
+
               "release_installer\resources.neu",
+
               "release_installer\update.json"
+
           )
+
 
           foreach ($file in $files) {
 
               if (-not (Test-Path $file)) {
-                  Write-Host "[ERROR] $file"
-                  exit 1
+
+                  throw "FILE TIDAK ADA: $file"
+
               }
 
               $item = Get-Item $file
 
               if ($item.Length -le 0) {
-                  Write-Host "[ERROR] File kosong: $file"
-                  exit 1
+
+                  throw "FILE KOSONG: $file"
+
               }
 
-              Write-Host "[OK] $file ($($item.Length) bytes)"
+              Write-Host ""
+              Write-Host "[OK] $file"
+              Write-Host "Size: $($item.Length) bytes"
+
           }
 
-          Write-Host ""
-          Write-Host "SEMUA FILE RELEASE VALID."
 
           Write-Host ""
-          Write-Host "Release directory:"
+          Write-Host "=============================================="
+          Write-Host "SEMUA FILE RELEASE VALID"
+          Write-Host "=============================================="
+
+
+          Write-Host ""
+          Write-Host "RELEASE INSTALLER DIRECTORY:"
+
           Get-ChildItem "release_installer" |
               Select-Object Name, Length
 
 
-      # ==========================================================
-      # 22. CREATE GITHUB RELEASE
-      # ==========================================================
+      # =========================================================
+      # GITHUB RELEASE
+      # =========================================================
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+
           tag_name: v${{ env.VERSION }}
+
           name: PrintPro POS v${{ env.VERSION }}
+
           generate_release_notes: true
+
           draft: false
+
           prerelease: false
 
           body: |
@@ -697,8 +905,11 @@ jobs:
             - update.json
 
           files: |
+
             release_installer/PrintPro-Setup-v${{ env.VERSION }}.exe
+
             release_installer/resources.neu
+
             release_installer/update.json
 
         env:

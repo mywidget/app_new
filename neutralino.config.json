@@ -34,8 +34,8 @@
     "binaryName": "PrintProPOS",
     "resourcesPath": "/dist/",
     "distributionPath": "/release/neutralino",
-    "binaryVersion": "latest",
-    "clientVersion": "latest",
+    "binaryVersion": "6.9.0",
+    "clientVersion": "6.9.0",
     "clientLibrary": "/dist/js/neutralino.js"
   }
 }
