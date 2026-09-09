@@ -51,7 +51,6 @@ jobs:
       - name: Download Neutralino Binary & Client JS, then Build
         shell: pwsh
         run: |
-          # 1. Baca versi binary
           $config = Get-Content neutralino.config.json -Raw | ConvertFrom-Json
           $neuVer = $config.cli.binaryVersion
 
@@ -61,14 +60,12 @@ jobs:
               $neuVer = $latestRelease.tag_name.TrimStart("v")
           }
 
-          # 2. Unduh dan ekstrak Neutralino Binary
           $binUrl = "https://github.com/neutralinojs/neutralinojs/releases/download/v$neuVer/neutralinojs-v$neuVer.zip"
           Write-Host "Downloading Neutralino binary v$neuVer..."
           Invoke-WebRequest -Uri $binUrl -OutFile "neutralinojs.zip"
           Expand-Archive -Path "neutralinojs.zip" -DestinationPath "bin" -Force
           Remove-Item "neutralinojs.zip"
 
-          # 3. Unduh neutralino.js ke folder dist dan dist/js (mencegah error missing file)
           Write-Host "Downloading neutralino.js client..."
           $clientUrl = "https://github.com/neutralinojs/neutralino.js/releases/latest/download/neutralino.js"
           
@@ -78,16 +75,27 @@ jobs:
           Invoke-WebRequest -Uri $clientUrl -OutFile "dist/neutralino.js"
           Invoke-WebRequest -Uri $clientUrl -OutFile "dist/js/neutralino.js"
 
-          # 4. Build bundel aplikasi
           npx neu build
 
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup -y
 
-      - name: Create Inno Setup Script
+      - name: Create Inno Setup Script & Compile Installer
         shell: pwsh
         run: |
+          # Cari file .exe hasil build Neutralino secara dinamis
+          $exeFile = Get-ChildItem -Path "release\*\*.exe" | Select-Object -First 1
+          if (-not $exeFile) {
+              Write-Error "File executable hasil build Neutralino tidak ditemukan di folder release!"
+              exit 1
+          }
+
+          $exeName = $exeFile.Name
+          $exeRelPath = $exeFile.FullName.Replace((Get-Location).Path + "\", "")
+
+          Write-Host "Ditemukan file executable Neutralino: $exeRelPath"
+
           $lines = @(
               '[Setup]',
               'AppName=PrintPro POS',
@@ -102,26 +110,25 @@ jobs:
               'ArchitecturesInstallIn64BitMode=x64',
               '',
               '[Files]',
-              'Source: "release\PrintProPOS\PrintProPOS-win_x64.exe"; DestDir: "{app}"; Flags: ignoreversion',
-              'Source: "release\PrintProPOS\resources.neu"; DestDir: "{app}"; Flags: ignoreversion',
+              "Source: ""$exeRelPath""; DestDir: ""{app}""; Flags: ignoreversion",
+              'Source: "release\*\resources.neu"; DestDir: "{app}"; Flags: ignoreversion',
               '',
               '[Icons]',
-              'Name: "{group}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"',
-              'Name: "{autodesktop}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"',
+              "Name: ""{group}\PrintPro POS""; Filename: ""{app}\$exeName""",
+              "Name: ""{autodesktop}\PrintPro POS""; Filename: ""{app}\$exeName""",
               '',
               '[Run]',
-              'Filename: "{app}\PrintProPOS-win_x64.exe"; Description: "Jalankan Aplikasi"; Flags: nowait postinstall skipifsilent'
+              "Filename: ""{app}\$exeName""; Description: ""Jalankan Aplikasi""; Flags: nowait postinstall skipifsilent"
           )
           $lines | Set-Content -Path "setup.iss" -Encoding UTF8
 
-      - name: Compile Installer
-        shell: pwsh
-        run: |
-          $isccPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $isccPath)) {
-              $isccPath = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          # Jalankan ISCC secara langsung agar output log Inno Setup tampil penuh
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+              $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
           }
-          Start-Process -FilePath $isccPath -ArgumentList "setup.iss" -NoNewWindow -Wait
+
+          & $iscc setup.iss
 
       - name: Generate update.json
         shell: pwsh
@@ -146,7 +153,7 @@ jobs:
           name: PrintPro POS v${{ env.VERSION }}
           files: |
             release_installer/PrintPro-Setup-v${{ env.VERSION }}.exe
-            release/PrintProPOS/resources.neu
+            release/*/resources.neu
             release_installer/update.json
           draft: false
           prerelease: false
