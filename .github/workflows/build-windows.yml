@@ -95,17 +95,24 @@ jobs:
 
       - name: Compile Installer
         shell: pwsh
-        run: & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" setup.iss
+        run: |
+          $isccPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $isccPath)) {
+              $isccPath = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          }
+          Start-Process -FilePath $isccPath -ArgumentList "setup.iss" -NoNewWindow -Wait
 
       - name: Generate update.json
         shell: pwsh
         run: |
+          $repo = $env:GITHUB_REPOSITORY
+          $ver = $env:VERSION
           $updateJson = @{
               applicationId = "id.printpro.pos"
-              version = "$env:VERSION"
-              resourcesURL = "https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/resources.neu"
-              downloadUrl = "https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/PrintPro-Setup-v$env:VERSION.exe"
-              changelog = "Pembaruan otomatis versi $env:VERSION"
+              version = $ver
+              resourcesURL = "https://github.com/$repo/releases/download/v$ver/resources.neu"
+              downloadUrl = "https://github.com/$repo/releases/download/v$ver/PrintPro-Setup-v$ver.exe"
+              changelog = "Pembaruan otomatis versi $ver"
           } | ConvertTo-Json -Depth 5
 
           New-Item -ItemType Directory -Force -Path "release_installer" | Out-Null
