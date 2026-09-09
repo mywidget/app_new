@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+
   workflow_dispatch:
     inputs:
       version:
@@ -29,81 +30,194 @@ jobs:
           cache: npm
 
       - name: Determine Version
-        id: version
         shell: pwsh
         run: |
-          $ver = "${{ github.ref_type }}" -eq "tag" ? "${{ github.ref_name }}".TrimStart("v") : "${{ inputs.version }}".Trim()
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $ver = "${{ github.ref_name }}".TrimStart("v")
+          }
+          else {
+            $ver = "${{ inputs.version }}".Trim()
+          }
+
           "VERSION=$ver" >> $env:GITHUB_ENV
+          Write-Host "VERSION = $ver"
 
       - name: Update Version in neutralino.config.json
         shell: pwsh
         run: |
-          $config = Get-Content neutralino.config.json -Raw | ConvertFrom-Json
+          $config = Get-Content "neutralino.config.json" -Raw | ConvertFrom-Json
           $config.version = "$env:VERSION"
-          $config | ConvertTo-Json -Depth 10 | Set-Content neutralino.config.json -Encoding UTF8
+          $config | ConvertTo-Json -Depth 20 | Set-Content "neutralino.config.json" -Encoding UTF8
 
       - name: Install Dependencies
         run: npm ci
 
-      - name: Build Web Assets (Vite)
+      - name: Build Web Assets
         run: npm run build
 
-      - name: Download Neutralino Binary & Build Bundle
+      - name: Update Neutralino
         shell: pwsh
         run: |
           npx neu update
+
+      - name: Build Neutralino
+        shell: pwsh
+        run: |
           npx neu build
+
+      - name: Show Neutralino Build Output
+        shell: pwsh
+        run: |
+          Write-Host "=========================================="
+          Write-Host "NEUTRALINO BUILD OUTPUT"
+          Write-Host "=========================================="
+
+          if (Test-Path "release") {
+            Get-ChildItem "release" -Recurse | Select-Object FullName
+          }
+          else {
+            Write-Error "Folder release tidak ditemukan."
+            exit 1
+          }
+
+      - name: Find Neutralino EXE
+        id: find_exe
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem "release" -Recurse -Filter "*.exe" |
+            Where-Object { $_.Name -notmatch "setup" } |
+            Select-Object -First 1
+
+          if (-not $exe) {
+            Write-Error "Tidak ada file EXE yang dihasilkan oleh neu build."
+            exit 1
+          }
+
+          Write-Host "EXE ditemukan:"
+          Write-Host $exe.FullName
+
+          "EXE_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
+          "EXE_NAME=$($exe.Name)" >> $env:GITHUB_ENV
+
+      - name: Find resources.neu
+        shell: pwsh
+        run: |
+          $resources = Get-ChildItem "release" -Recurse -Filter "resources.neu" |
+            Select-Object -First 1
+
+          if (-not $resources) {
+            Write-Error "resources.neu tidak ditemukan."
+            exit 1
+          }
+
+          Write-Host "resources.neu ditemukan:"
+          Write-Host $resources.FullName
+
+          "RESOURCES_PATH=$($resources.FullName)" >> $env:GITHUB_ENV
 
       - name: Install Inno Setup
         shell: pwsh
-        run: choco install innosetup -y
+        run: |
+          choco install innosetup -y --no-progress
+
+      - name: Prepare Installer Files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "installer_files" | Out-Null
+
+          Copy-Item "$env:EXE_PATH" `
+            "installer_files\PrintProPOS.exe" `
+            -Force
+
+          Copy-Item "$env:RESOURCES_PATH" `
+            "installer_files\resources.neu" `
+            -Force
+
+          Write-Host "Installer files:"
+          Get-ChildItem "installer_files"
 
       - name: Create Inno Setup Script
         shell: pwsh
         run: |
-          $iss = @"
-          [Setup]
-          AppName=PrintPro POS
-          AppVersion=$env:VERSION
-          AppPublisher=PrintPro
-          DefaultDirName={autopf}\PrintProPOS
-          DefaultGroupName=PrintPro POS
-          OutputDir=release_installer
-          OutputBaseFilename=PrintPro-Setup-v$env:VERSION
-          Compression=lzma
-          SolidCompression=yes
-          ArchitecturesInstallIn64BitMode=x64
+          $iss = @(
+            '[Setup]'
+            'AppName=PrintPro POS'
+            "AppVersion=$env:VERSION"
+            'AppPublisher=PrintPro'
+            'DefaultDirName={autopf}\PrintProPOS'
+            'DefaultGroupName=PrintPro POS'
+            'OutputDir=release_installer'
+            "OutputBaseFilename=PrintPro-Setup-v$env:VERSION"
+            'Compression=lzma'
+            'SolidCompression=yes'
+            'ArchitecturesInstallIn64BitMode=x64'
+            ''
+            '[Files]'
+            'Source: "installer_files\PrintProPOS.exe"; DestDir: "{app}"; Flags: ignoreversion'
+            'Source: "installer_files\resources.neu"; DestDir: "{app}"; Flags: ignoreversion'
+            ''
+            '[Icons]'
+            'Name: "{group}\PrintPro POS"; Filename: "{app}\PrintProPOS.exe"'
+            'Name: "{autodesktop}\PrintPro POS"; Filename: "{app}\PrintProPOS.exe"'
+            ''
+            '[Run]'
+            'Filename: "{app}\PrintProPOS.exe"; Description: "Jalankan Aplikasi"; Flags: nowait postinstall skipifsilent'
+          ) -join "`r`n"
 
-          [Files]
-          Source: "release\PrintProPOS\PrintProPOS-win_x64.exe"; DestDir: "{app}"; Flags: ignoreversion
-          Source: "release\PrintProPOS\resources.neu"; DestDir: "{app}"; Flags: ignoreversion
+          Set-Content `
+            -Path "setup.iss" `
+            -Value $iss `
+            -Encoding UTF8
 
-          [Icons]
-          Name: "{group}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"
-          Name: "{autodesktop}\PrintPro POS"; Filename: "{app}\PrintProPOS-win_x64.exe"
-
-          [Run]
-          Filename: "{app}\PrintProPOS-win_x64.exe"; Description: "Jalankan Aplikasi"; Flags: nowait postinstall skipifsilent
-          "@
-          Set-Content -Path "setup.iss" -Value $iss -Encoding UTF8
+          Write-Host "setup.iss:"
+          Get-Content "setup.iss"
 
       - name: Compile Installer
         shell: pwsh
-        run: & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" setup.iss
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+
+          if (-not (Test-Path $iscc)) {
+            Write-Error "ISCC.exe tidak ditemukan: $iscc"
+            exit 1
+          }
+
+          & $iscc "setup.iss"
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Inno Setup gagal."
+            exit $LASTEXITCODE
+          }
 
       - name: Generate update.json
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path "release_installer" | Out-Null
+
           $updateJson = @{
-              applicationId = "id.printpro.pos"
-              version = "$env:VERSION"
-              resourcesURL = "https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/resources.neu"
-              downloadUrl = "https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/PrintPro-Setup-v$env:VERSION.exe"
-              changelog = "Pembaruan otomatis versi $env:VERSION"
+            applicationId = "id.printpro.pos"
+            version = "$env:VERSION"
+            resourcesURL = "https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/resources.neu"
+            downloadUrl = "https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/PrintPro-Setup-v$env:VERSION.exe"
+            changelog = "Pembaruan otomatis versi $env:VERSION"
           } | ConvertTo-Json -Depth 5
 
-          New-Item -ItemType Directory -Force -Path "release_installer" | Out-Null
-          Set-Content -Path "release_installer/update.json" -Value $updateJson -Encoding UTF8
+          Set-Content `
+            -Path "release_installer/update.json" `
+            -Value $updateJson `
+            -Encoding UTF8
+
+          Write-Host $updateJson
+
+      - name: Show Release Files
+        shell: pwsh
+        run: |
+          Write-Host "=========================================="
+          Write-Host "RELEASE FILES"
+          Write-Host "=========================================="
+
+          Get-ChildItem "release_installer" -Recurse |
+            Select-Object FullName, Length
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -112,8 +226,8 @@ jobs:
           name: PrintPro POS v${{ env.VERSION }}
           files: |
             release_installer/PrintPro-Setup-v${{ env.VERSION }}.exe
-            release/PrintProPOS/resources.neu
             release_installer/update.json
+            ${{ env.RESOURCES_PATH }}
           draft: false
           prerelease: false
         env:
